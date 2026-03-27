@@ -11,7 +11,7 @@ class GameUI:
         #Create attributes
         self.engine = engine
         self.profile_path = profile_path
-        self.message = "Welcome"
+        self.message = "Welcome!"
         self.running = True
         self.profile = None
         self.visited_rooms = set()
@@ -146,7 +146,7 @@ class GameUI:
         stdscr.clear()
 
         #Lines to display
-        lines = ["Thanks for playing Treasure Runner", "", f"Player: {self.profile['player_name']}", f"Games Played: {self.profile['games_played']}", f"Max Treasure Collected: {self.profile['max_treasure_collected']}", f"Most Rooms World Completed: {self.profile['most_rooms_world_completed']}", f"Last Played: {self.profile['timestamp_last_played']}", "", "Press any key to exit"]
+        lines = ["Bye bye", "", f"Player: {self.profile['player_name']}", f"Games Played: {self.profile['games_played']}", f"Max Treasure Collected: {self.profile['max_treasure_collected']}", f"Most Rooms World Completed: {self.profile['most_rooms_world_completed']}", f"Last Played: {self.profile['timestamp_last_played']}", "", "Press any key to exit"]
 
         max_y, max_x = stdscr.getmaxyx()
 
@@ -175,7 +175,7 @@ class GameUI:
         rooms_visited = len(self.visited_rooms)
 
         #Lines to display
-        lines = ["Victory!", "", f"Player: {self.profile['player_name']}", f"Treasures Collected: {collected}/{total}", f"Rooms Visited: {rooms_visited}", f"Games Played: {self.profile['games_played']}", f"Max Treasure Collected: {self.profile['max_treasure_collected']}", f"Most Rooms World Completed: {self.profile['most_rooms_world_completed']}", "", "You collected every treasure in the world!", "", "Press any key to continue"]
+        lines = ["You Win!", "", f"Player: {self.profile['player_name']}", f"Treasures Collected: {collected}/{total}", f"Rooms Visited: {rooms_visited}", f"Games Played: {self.profile['games_played']}", f"Max Treasure Collected: {self.profile['max_treasure_collected']}", f"Most Rooms World Completed: {self.profile['most_rooms_world_completed']}", "", "You collected every treasure in the world!", "", "Press any key to continue"]
 
         #Print all lines
         row = 0
@@ -224,7 +224,7 @@ class GameUI:
         progress_text = "Treasure Progress: " + self._build_progress_bar()
         controls_text = "Game Controls: Arrows / WASD Move, > Portal, r Reset, q Quit"
         status_text = self._build_status_text()
-        footer_text = "-=+ Treasure Runner +=-    mallen31@uoguelph.ca"
+        footer_text = "-=+ Treasure Runner +=-               mallen31@uoguelph.ca"
 
         side_by_side_width = room_width + 2 + legend_width
 
@@ -251,11 +251,8 @@ class GameUI:
 
         if max_y < min_height or max_x < min_width:
             stdscr.clear()
-            stdscr.addstr(
-                0,
-                0,
-                f"Terminal too small. Need at least {min_width}x{min_height}"[: max_x - 1]
-            )
+            stdscr.addstr(0, 0, f"Terminal too small. Need at least {min_width}x{min_height}"[: max_x - 1])
+
             stdscr.refresh()
             stdscr.getch()
             return False
@@ -323,7 +320,7 @@ class GameUI:
         if key in (ord("r"), ord("R")):
             self.engine.reset()
             self.visited_rooms = {self.engine.player.get_room()}
-            self.message = "Game reset."
+            self.message = "Game reset"
             return
 
         #Portal key
@@ -422,7 +419,7 @@ class GameUI:
 
         #Display footer
         if footer_row < max_y:
-            stdscr.addstr(footer_row, 0, "-=+ Treasure Runner +=-    mallen31@uoguelph.ca"[: max_x - 1])
+            stdscr.addstr(footer_row, 0, "-=+ Treasure Runner +=-               mallen31@uoguelph.ca"[: max_x - 1])
 
     def _draw_controls_status(self, stdscr, room_height, max_y, max_x):
         game_row = 3
@@ -477,10 +474,10 @@ class GameUI:
             if new_room != old_room:
                 self.message = f"Entered Room {new_room}"
             else:
-                self.message = "Used portal."
+                self.message = "Used portal"
 
         except Exception as exc:
-            self.message = str(exc) if str(exc) else "No portal here."
+            self.message = str(exc) if str(exc) else "No portal here"
 
     #Save profile to file
     def _save_profile(self) -> None:

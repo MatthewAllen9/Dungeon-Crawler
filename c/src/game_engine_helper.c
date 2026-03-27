@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 static Status game_engine_direction_delta(Direction dir, int *dx_out, int *dy_out);
 static Room *game_engine_find_room_by_id(const GameEngine *eng, int room_id);
@@ -14,6 +15,12 @@ static Status game_engine_handle_treasure_move(GameEngine *eng, Room *room, int 
 static Status game_engine_handle_pushable_move(GameEngine *eng, Room *room, int pushable_idx, Direction dir, int new_x, int new_y);
 static Status game_engine_handle_portal_move(GameEngine *eng, int dest_room_id);
 static Treasure *game_engine_find_treasure_by_id(Room *room, int treasure_id);
+
+//Portal gates
+static Portal *game_engine_find_portal_at(Room *room, int x, int y);
+static Switch *game_engine_find_switch_by_id(Room *room, int switch_id);
+static bool game_engine_is_switch_active(Room *room, int switch_id);
+static bool game_engine_is_portal_locked(Room *room, Portal *portal);
 
 Status game_engine_move_player_2(GameEngine *eng, Direction dir){
     //Return invalid if engine or player is null
@@ -75,28 +82,32 @@ Status game_engine_move_player_2(GameEngine *eng, Direction dir){
 
 Status game_engine_use_portal(GameEngine *eng){
     if (!eng || !eng->player){
-        return INTERNAL_ERROR;
+        return INVALID_ARGUMENT;
     }
 
     int room_id = player_get_room(eng->player);
-
     Room *current_room = game_engine_find_room_by_id(eng, room_id);
     if (!current_room){
-        return INTERNAL_ERROR;
+        return GE_NO_SUCH_ROOM;
     }
 
     int x = 0;
     int y = 0;
-    player_get_position(eng->player, &x, &y);
+    Status status = player_get_position(eng->player, &x, &y);
+    if (status != OK){
+        return status;
+    }
 
-    int out_id = -1;
-    RoomTileType tile_type = room_classify_tile(current_room, x, y, &out_id);
-
-    if (tile_type != ROOM_TILE_PORTAL){
+    Portal *portal = game_engine_find_portal_at(current_room, x, y);
+    if (!portal){
         return ROOM_NO_PORTAL;
     }
 
-    return game_engine_handle_portal_move(eng, out_id);
+    if (game_engine_is_portal_locked(current_room, portal)){
+        return ROOM_IMPASSABLE;
+    }
+
+    return game_engine_handle_portal_move(eng, portal->target_room_id);
 }
 
 Status game_engine_get_charset_helper(const GameEngine *eng, Charset *charset_out){
@@ -251,4 +262,57 @@ static Status game_engine_handle_portal_move(GameEngine *eng, int dest_room_id){
     }
 
     return player_set_position(eng->player, start_x, start_y);
+}
+
+//Find portal at location
+static Portal *game_engine_find_portal_at(Room *room, int x, int y){
+    if (!room){
+        return NULL;
+    }
+
+    for (int i = 0; i < room->portal_count; i++){
+        if (room->portals[i].x == x && room->portals[i].y == y){
+            return &room->portals[i];
+        }
+    }
+
+    return NULL;
+}
+
+//Find switch by id
+static Switch *game_engine_find_switch_by_id(Room *room, int switch_id){
+    if (!room){
+        return NULL;
+    }
+
+    for (int i = 0; i < room->switch_count; i++){
+        if (room->switches[i].id == switch_id){
+            return &room->switches[i];
+        }
+    }
+
+    return NULL;
+}
+
+//Check if switch is on or off
+static bool game_engine_is_switch_active(Room *room, int switch_id){
+    Switch *sw = game_engine_find_switch_by_id(room, switch_id);
+    if (!sw){
+        return false;
+    }
+
+    return room_has_pushable_at(room, sw->x, sw->y, NULL);
+}
+
+//Check if portal is locked
+static bool game_engine_is_portal_locked(Room *room, Portal *portal){
+    if (!room || !portal){
+        return true;
+    }
+
+    if (!portal->gated){
+        return false;
+    }
+
+    return !game_engine_is_switch_active(room, portal->required_switch_id);
 }
