@@ -190,6 +190,15 @@ class GameUI:
         stdscr.getch()
 
     def _get_min_terminal_size(self):
+        room_width, room_height = self._get_room_render_size()
+        legend_width = self._get_legend_width()
+
+        min_width = self._get_min_terminal_width(room_width, legend_width)
+        min_height = self._get_min_terminal_height(room_height)
+
+        return min_height, min_width
+
+    def _get_room_render_size(self):
         room_text = self.engine.render_current_room()
         room_lines = room_text.splitlines()
 
@@ -199,13 +208,19 @@ class GameUI:
                 room_width = len(line)
 
         room_height = len(room_lines)
+        return room_width, room_height
 
+    def _get_legend_width(self):
         legend_items = self._build_legend_items()
+
         legend_width = 0
         for text in legend_items:
             if len(text) > legend_width:
                 legend_width = len(text)
 
+        return legend_width
+
+    def _get_min_terminal_width(self, room_width, legend_width):
         progress_text = "Treasure Progress: " + self._build_progress_bar()
         controls_text = "Game Controls: Arrows / WASD Move, > Portal, r Reset, q Quit"
         status_text = self._build_status_text()
@@ -213,7 +228,7 @@ class GameUI:
 
         side_by_side_width = room_width + 2 + legend_width
 
-        min_width = max(
+        return max(
             side_by_side_width,
             len(progress_text),
             len(controls_text),
@@ -221,14 +236,14 @@ class GameUI:
             len(footer_text)
         )
 
+    def _get_min_terminal_height(self, room_height):
         game_row = 3
-        controls_row = game_row + room_height + 3
+        progress_row = game_row + room_height + 1
+        controls_row = progress_row + 2
         status_row = controls_row + 2
         footer_row = status_row + 1
 
-        min_height = footer_row + 1
-
-        return min_height, min_width
+        return footer_row + 1
 
     def _check_terminal_size(self, stdscr):
         max_y, max_x = stdscr.getmaxyx()
