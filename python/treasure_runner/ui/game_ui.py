@@ -292,40 +292,59 @@ class GameUI:
 
         return f"Player Status: {self.profile['player_name']} | " f"Treasures Collected: {collected} | " f"Co-ords: ({player_x},{player_y}) | " f"Rooms Visited: {len(self.visited_rooms)}/{room_count}"
 
+    def handle_portal(self):
+        old_room = self.engine.player.get_room()
+        try:
+            self.engine.use_portal()
+            new_room = self.engine.player.get_room()
+
+            if new_room != old_room:
+                self.message = f"Entered Room {new_room}"
+            else:
+                self.message = "Used portal."
+
+        except Exception as exc:
+            self.message = str(exc) if str(exc) else "No portal here."
+
     #Update based on input
     def update(self, key) -> None:
+        #Map movement keys to directions
+        move_keys = {
+            curses.KEY_UP: Direction.NORTH,
+            ord("w"): Direction.NORTH,
+            ord("W"): Direction.NORTH,
+            curses.KEY_DOWN: Direction.SOUTH,
+            ord("s"): Direction.SOUTH,
+            ord("S"): Direction.SOUTH,
+            curses.KEY_RIGHT: Direction.EAST,
+            ord("d"): Direction.EAST,
+            ord("D"): Direction.EAST,
+            curses.KEY_LEFT: Direction.WEST,
+            ord("a"): Direction.WEST,
+            ord("A"): Direction.WEST,
+        }
+
         #Exit if q
         if key in (ord("q"), ord("Q")):
             self.message = "Bye bye!"
             self.running = False
-        #Try to move up if up key or w same for rest of controls
-        elif key in (curses.KEY_UP, ord("w"), ord("W")):
-            self._try_move(Direction.NORTH)
-        elif key in (curses.KEY_DOWN, ord("s"), ord("S")):
-            self._try_move(Direction.SOUTH)
-        elif key in (curses.KEY_RIGHT, ord("d"), ord("D")):
-            self._try_move(Direction.EAST)
-        elif key in (curses.KEY_LEFT, ord("a"), ord("A")):
-            self._try_move(Direction.WEST)
+            return
+
         #Reset game on r
-        elif key in (ord("r"), ord("R")):
+        if key in (ord("r"), ord("R")):
             self.engine.reset()
             self.visited_rooms = {self.engine.player.get_room()}
             self.message = "Game reset."
+            return
+
         #Portal key
-        elif key == ord(">"):
-            old_room = self.engine.player.get_room()
-            try:
-                self.engine.use_portal()
-                new_room = self.engine.player.get_room()
+        if key == ord(">"):
+            self.handle_portal()
+            return
 
-                if new_room != old_room:
-                    self.message = f"Entered Room {new_room}"
-                else:
-                    self.message = "Used portal."
-
-            except Exception as exc:
-                self.message = str(exc) if str(exc) else "No portal here."
+        #Movement keys
+        if key in move_keys:
+            self._try_move(move_keys[key])
 
     #Try move
     def _try_move(self, direction) -> None:

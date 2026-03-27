@@ -85,7 +85,8 @@ Status game_engine_use_portal(GameEngine *eng){
         return INTERNAL_ERROR;
     }
 
-    int x, y;
+    int x = 0;
+    int y = 0;
     player_get_position(eng->player, &x, &y);
 
     int out_id = -1;
