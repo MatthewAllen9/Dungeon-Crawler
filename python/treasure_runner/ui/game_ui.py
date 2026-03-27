@@ -290,7 +290,7 @@ class GameUI:
         collected = self.engine.player.get_collected_count()
         room_count = self.engine.get_room_count()
 
-        return (f"Player Status: {self.profile['player_name']} | " f"Treasures Collected: {collected} | " f"Co-ords: ({player_x},{player_y}) | " f"Rooms Visited: {len(self.visited_rooms)}/{room_count}")
+        return f"Player Status: {self.profile['player_name']} | " f"Treasures Collected: {collected} | " f"Co-ords: ({player_x},{player_y}) | " f"Rooms Visited: {len(self.visited_rooms)}/{room_count}"
 
     #Update based on input
     def update(self, key) -> None:
