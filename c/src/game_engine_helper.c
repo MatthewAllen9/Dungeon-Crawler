@@ -99,8 +99,47 @@ Status game_engine_use_portal(GameEngine *eng){
     return game_engine_handle_portal_move(eng, out_id);
 }
 
+Status game_engine_get_charset_helper(const GameEngine *eng, Charset *charset_out){
+    if (!eng){
+        return INVALID_ARGUMENT;
+    }
 
+    if (!charset_out){
+        return NULL_POINTER;
+    }
 
+    *charset_out = eng->charset;
+    return OK;
+}
+
+Status game_engine_get_total_treasure_count(const GameEngine *eng, int *count_out){
+    if (!eng){
+        return INVALID_ARGUMENT;
+    }
+
+    if (!count_out){
+        return NULL_POINTER;
+    }
+
+    const void *const *rooms = NULL;
+    int room_count = 0;
+
+    if (graph_get_all_payloads(eng->graph, &rooms, &room_count) != GRAPH_STATUS_OK){
+        return INTERNAL_ERROR;
+    }
+
+    int total = 0;
+
+    for (int i = 0; i < room_count; i++){
+        const Room *room = (const Room *)rooms[i];
+        if (room){
+            total += room->treasure_count;
+        }
+    }
+
+    *count_out = total;
+    return OK;
+}
 
 //Change in direction
 static Status game_engine_direction_delta(Direction dir, int *dx_out, int *dy_out){

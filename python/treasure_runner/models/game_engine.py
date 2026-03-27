@@ -1,6 +1,6 @@
 import ctypes
 
-from treasure_runner.bindings import lib, Status, GameEngine as CGameEngine, Direction
+from treasure_runner.bindings import lib, Status, GameEngine as CGameEngine, Direction, Charset
 from treasure_runner.models.exceptions import status_to_exception
 from treasure_runner.models.player import Player
 
@@ -143,4 +143,28 @@ class GameEngine:
         #Rause if fail
         if status != Status.OK:
             raise status_to_exception(status)
+
+    def get_charset(self) -> dict:
+        out_charset = Charset()
+
+        status = lib.game_engine_get_charset_helper(self._eng, ctypes.byref(out_charset))
+        if status != Status.OK:
+            raise status_to_exception(status)
+
+        return {
+            "wall": out_charset.wall.decode("utf-8"),
+            "floor": out_charset.floor.decode("utf-8"),
+            "player": out_charset.player.decode("utf-8"),
+            "pushable": out_charset.pushable.decode("utf-8"),
+            "treasure": out_charset.treasure.decode("utf-8"),
+            "portal": out_charset.portal.decode("utf-8"),
+            "switch_off": out_charset.switch_off.decode("utf-8"),
+            "switch_on": out_charset.switch_on.decode("utf-8"),
+        }
             
+    def get_total_treasure_count(self) -> int:
+        out_count = ctypes.c_int(0)
+        status = lib.game_engine_get_total_treasure_count(self._eng, ctypes.byref(out_count))
+        if status != Status.OK:
+            raise status_to_exception(status)
+        return int(out_count.value)

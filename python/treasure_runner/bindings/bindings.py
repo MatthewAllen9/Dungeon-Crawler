@@ -66,6 +66,18 @@ class Treasure(ctypes.Structure):
         ("collected", ctypes.c_bool),
     ]
 
+#Charset defined in ini file
+class Charset(ctypes.Structure):
+    _fields_ = [
+        ("wall", ctypes.c_char),
+        ("floor", ctypes.c_char),
+        ("player", ctypes.c_char),
+        ("pushable", ctypes.c_char),
+        ("treasure", ctypes.c_char),
+        ("portal", ctypes.c_char),
+        ("switch_off", ctypes.c_char),
+        ("switch_on", ctypes.c_char),
+    ]
 
 # ============================================================
 # Library Loading
@@ -215,3 +227,9 @@ lib.game_engine_move_player_2.restype = Status
 
 lib.game_engine_use_portal.argtypes = [GameEngine]
 lib.game_engine_use_portal.restype = Status
+
+lib.game_engine_get_charset_helper.argtypes = [GameEngine, ctypes.POINTER(Charset)]
+lib.game_engine_get_charset_helper.restype = Status
+
+lib.game_engine_get_total_treasure_count.argtypes = [GameEngine, ctypes.POINTER(ctypes.c_int)]
+lib.game_engine_get_total_treasure_count.restype = Status

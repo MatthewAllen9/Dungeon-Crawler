@@ -15,6 +15,7 @@ class GameUI:
         self.running = True
         self.profile = None
         self.visited_rooms = set()
+        self.won = False
 
     #Start the UI
     def run(self) -> None:
@@ -47,8 +48,10 @@ class GameUI:
         self.update_profile_stats()
         self.save_profile()
 
-        #Show quit screen
-        self.show_quit_screen(stdscr)
+        if self.won:
+            self.show_victory_screen(stdscr)
+        else:
+            self.show_quit_screen(stdscr)
 
     #Load existing profile or create a new one
     def load_or_create_profile(self, stdscr) -> dict:
@@ -150,6 +153,34 @@ class GameUI:
         stdscr.refresh()
         stdscr.getch()
 
+    #Show victory screen
+    def show_victory_screen(self, stdscr) -> None:
+        #Clear screen
+        stdscr.clear()
+
+        #Get terminal size
+        max_y, max_x = stdscr.getmaxyx()
+
+        #Get final stats
+        collected = self.engine.player.get_collected_count()
+        total = self.engine.get_total_treasure_count()
+        rooms_visited = len(self.visited_rooms)
+
+        #Lines to display
+        lines = ["Victory!", "", f"Player: {self.profile['player_name']}", f"Treasures Collected: {collected}/{total}", f"Rooms Visited: {rooms_visited}", f"Games Played: {self.profile['games_played']}", f"Max Treasure Collected: {self.profile['max_treasure_collected']}", f"Most Rooms World Completed: {self.profile['most_rooms_world_completed']}", "", "You collected every treasure in the world!", "", "Press any key to continue"]
+
+        #Print all lines
+        row = 0
+        for line in lines:
+            if row >= max_y:
+                break
+            stdscr.addstr(row, 0, line[: max_x - 1])
+            row += 1
+
+        #Refresh and wait
+        stdscr.refresh()
+        stdscr.getch()
+
     #Update profile stats after game ends
     def update_profile_stats(self) -> None:
         #Get current collected treasure count
@@ -215,9 +246,11 @@ class GameUI:
         #Call draw room
         room_width, room_height = self.draw_room(stdscr, room_lines, max_y, max_x)
 
-        #Call draw legend and controls
+        #Call draw legend and controls and progress
         self.draw_legend(stdscr, room_width, max_y, max_x)
-        self.draw_controls_status(stdscr, room_height, max_y, max_x)
+        self.draw_controls_status(stdscr, room_height + 2, max_y, max_x)
+        progress_row = 3 + room_height + 1
+        self.draw_progress_bar(stdscr, progress_row, max_y, max_x)
 
         #Refresh
         stdscr.refresh()
@@ -246,21 +279,51 @@ class GameUI:
         #Return
         return room_width, len(room_lines)
 
+    def build_progress_bar(self):
+        collected = self.engine.player.get_collected_count()
+        total = self.engine.get_total_treasure_count()
+
+        if total <= 0:
+            return "[--------------------------------------------------] 0%"
+
+        filled = int((collected / total) * 50)
+        empty = 50 - filled
+        percent = int((collected / total) * 100)
+
+        return "[" + ("=" * filled) + ("-" * empty) + f"] {percent}%"
+
+    def build_legend_items(self):
+        charset = self.engine.get_charset()
+
+        return [
+            "Game Elements:",
+            "",
+            f"{charset['player']} - Player",
+            f"{charset['wall']} - Wall",
+            f"{charset['floor']} - Floor",
+            f"{charset['treasure']} - Treasure",
+            f"{charset['portal']} - Portal",
+            f"{charset['pushable']} - Pushable",
+        ]
+
     def draw_legend(self, stdscr, room_width, max_y, max_x):
 
         #Store legend column based on room width and set game row
         legend_col = room_width + 2
         game_row = 3
 
-        #Set each row for the legend
-        legend_items = ["Game Elements:", "", "@ - Player", "# - Wall", ". - Floor", "$ - Treasure", "X - Portal", "O - Pushable"]
+        legend_items = self.build_legend_items()
 
-        #Print all lines of the legend
         row = game_row
         for text in legend_items:
-            if row < max_y and legend_col < max_x:
-                stdscr.addstr(row, legend_col, text[: max_x - legend_col - 1])
-            row += 1
+           if row < max_y and legend_col < max_x:
+               stdscr.addstr(row, legend_col, text[: max_x - legend_col - 1])
+           row += 1
+
+    def draw_progress_bar(self, stdscr, row, max_y, max_x):
+        if row < max_y:
+            progress_text = "Treasure Progress: " + self.build_progress_bar()
+            stdscr.addstr(row, 0, progress_text[: max_x - 1])
 
     def draw_controls(self, stdscr, controls_row, max_y, max_x):
         #Displat controls
@@ -288,6 +351,7 @@ class GameUI:
     def build_status_text(self):
         player_x, player_y = self.engine.player.get_position()
         collected = self.engine.player.get_collected_count()
+        
         room_count = self.engine.get_room_count()
 
         return f"Player Status: {self.profile['player_name']} | " f"Treasures Collected: {collected} | " f"Co-ords: ({player_x},{player_y}) | " f"Rooms Visited: {len(self.visited_rooms)}/{room_count}"
@@ -364,7 +428,13 @@ class GameUI:
             if new_room != old_room:
                 self.message = f"Entered Room {new_room}"
             elif new_count > old_count:
-                self.message = "Treasure collected!"
+                total_count = self.engine.get_total_treasure_count()
+                self.message = f"Treasure collected! {new_count}/{total_count}"
+
+                #Check for victory
+                if new_count == total_count and total_count > 0:
+                    self.running = False
+                    self.won = True
             else:
                 self.message = f"Moved {direction.name}"
 
