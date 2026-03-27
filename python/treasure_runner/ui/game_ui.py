@@ -314,11 +314,18 @@ class GameUI:
             self.message = "Game reset."
         #Portal key
         elif key == ord(">"):
+            old_room = self.engine.player.get_room()
             try:
                 self.engine.use_portal()
-                self.message = "Entered portal!"
-            except Exception:
-                self.message = "No portal here"
+                new_room = self.engine.player.get_room()
+
+                if new_room != old_room:
+                    self.message = f"Entered Room {new_room}"
+                else:
+                    self.message = "Used portal."
+
+            except Exception as exc:
+                self.message = str(exc) if str(exc) else "No portal here."
 
     #Try move
     def _try_move(self, direction) -> None:

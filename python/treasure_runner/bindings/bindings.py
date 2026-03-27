@@ -205,3 +205,13 @@ lib.game_engine_free_string.restype = None
 
 lib.destroy_treasure.argtypes = [ctypes.POINTER(Treasure)]
 lib.destroy_treasure.restype = None
+
+# ============================================================
+# A3 helpers
+# ============================================================
+
+lib.game_engine_move_player_2.argtypes = [GameEngine, ctypes.c_int]
+lib.game_engine_move_player_2.restype = Status
+
+lib.game_engine_use_portal.argtypes = [GameEngine]
+lib.game_engine_use_portal.restype = Status

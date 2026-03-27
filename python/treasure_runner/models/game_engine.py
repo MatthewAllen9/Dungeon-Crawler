@@ -45,10 +45,18 @@ class GameEngine:
         self._destroyed = True
 
     def move_player(self, direction: Direction) -> None:
-        #Call move player
-        status = lib.game_engine_move_player(self._eng, direction)
+        #Call move player (NEW HELPER)
+        status = lib.game_engine_move_player_2(self._eng, direction)
 
         #Raise if fail
+        if status != Status.OK:
+            raise status_to_exception(status)
+
+    def use_portal(self) -> None:
+        #Call use portal with new helper
+        status = lib.game_engine_use_portal(self._eng)
+
+        #Rause if fail
         if status != Status.OK:
             raise status_to_exception(status)
 
