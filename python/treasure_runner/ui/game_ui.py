@@ -29,39 +29,47 @@ class GameUI:
         stdscr.keypad(True)
 
         #Load or create profile
-        self.profile = self.load_or_create_profile(stdscr)
+        self.profile = self._load_or_create_profile(stdscr)
 
         #Show startup screen
-        self.show_startup_screen(stdscr)
+        self._show_startup_screen(stdscr)
+
+        #Make sure terminal is always big enough
+        if not self._check_terminal_size(stdscr):
+            return
 
         #Track initial room
         self.visited_rooms.add(self.engine.player.get_room())
 
         #Game loop
         while self.running:
+            #Make sure terminal is always big enough
+            if not self._check_terminal_size(stdscr):
+                return
+
             #Draw then get input and then handle input then repeat
-            self.draw(stdscr)
+            self._draw(stdscr)
             key = stdscr.getch()
-            self.update(key)
+            self._update(key)
 
         #Update and save profile after the game ends
-        self.update_profile_stats()
-        self.save_profile()
+        self._update_profile_stats()
+        self._save_profile()
 
         if self.won:
-            self.show_victory_screen(stdscr)
+            self._show_victory_screen(stdscr)
         else:
-            self.show_quit_screen(stdscr)
+            self._show_quit_screen(stdscr)
 
     #Load existing profile or create a new one
-    def load_or_create_profile(self, stdscr) -> dict:
+    def _load_or_create_profile(self, stdscr) -> dict:
         #Check if the profile already exists
         if os.path.exists(self.profile_path):
             with open(self.profile_path, "r", encoding="utf-8") as file:
                 return json.load(file)
 
         #Prompt for player name if profile does not exist
-        player_name = self.prompt_player_name(stdscr)
+        player_name = self._prompt_player_name(stdscr)
 
         #Create default profile
         profile = {
@@ -84,7 +92,7 @@ class GameUI:
         return profile
 
     #Prompt for player name
-    def prompt_player_name(self, stdscr) -> str:
+    def _prompt_player_name(self, stdscr) -> str:
         #SHow typed input
         curses.echo()
 
@@ -107,7 +115,7 @@ class GameUI:
         return name
 
     #Show startup splash screen
-    def show_startup_screen(self, stdscr) -> None:
+    def _show_startup_screen(self, stdscr) -> None:
         #Clear screen
         stdscr.clear()
 
@@ -133,7 +141,7 @@ class GameUI:
         stdscr.getch()
 
     #Show quit splash screen
-    def show_quit_screen(self, stdscr) -> None:
+    def _show_quit_screen(self, stdscr) -> None:
         #Clear screen
         stdscr.clear()
 
@@ -154,7 +162,7 @@ class GameUI:
         stdscr.getch()
 
     #Show victory screen
-    def show_victory_screen(self, stdscr) -> None:
+    def _show_victory_screen(self, stdscr) -> None:
         #Clear screen
         stdscr.clear()
 
@@ -181,41 +189,67 @@ class GameUI:
         stdscr.refresh()
         stdscr.getch()
 
-    #Update profile stats after game ends
-    def update_profile_stats(self) -> None:
-        #Get current collected treasure count
-        collected = self.engine.player.get_collected_count()
+    def _get_min_terminal_size(self):
+        room_text = self.engine.render_current_room()
+        room_lines = room_text.splitlines()
 
-        #Get number of rooms visited
-        rooms_visited = len(self.visited_rooms)
+        room_width = 0
+        for line in room_lines:
+            if len(line) > room_width:
+                room_width = len(line)
 
-        #Increment games played
-        self.profile["games_played"] += 1
+        room_height = len(room_lines)
 
-        #Update max treasure if needed
-        if collected > self.profile["max_treasure_collected"]:
-            self.profile["max_treasure_collected"] = collected
+        legend_items = self._build_legend_items()
+        legend_width = 0
+        for text in legend_items:
+            if len(text) > legend_width:
+                legend_width = len(text)
 
-        #Update most rooms completed if needed
-        if rooms_visited > self.profile["most_rooms_world_completed"]:
-            self.profile["most_rooms_world_completed"] = rooms_visited
+        progress_text = "Treasure Progress: " + self._build_progress_bar()
+        controls_text = "Game Controls: Arrows / WASD Move, > Portal, r Reset, q Quit"
+        status_text = self._build_status_text()
+        footer_text = "-=+ Treasure Runner +=-    mallen31@uoguelph.ca"
 
-        #Update timestamp
-        self.profile["timestamp_last_played"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        side_by_side_width = room_width + 2 + legend_width
 
-    #Save profile to file
-    def save_profile(self) -> None:
-        #Ensure folder exists
-        folder = os.path.dirname(self.profile_path)
-        if folder:
-            os.makedirs(folder, exist_ok=True)
+        min_width = max(
+            side_by_side_width,
+            len(progress_text),
+            len(controls_text),
+            len(status_text),
+            len(footer_text)
+        )
 
-        #Write profile to file
-        with open(self.profile_path, "w", encoding="utf-8") as file:
-            json.dump(self.profile, file, indent=4)
+        game_row = 3
+        progress_row = game_row + room_height + 1
+        controls_row = game_row + room_height + 3
+        status_row = controls_row + 2
+        footer_row = status_row + 1
+
+        min_height = footer_row + 1
+
+        return min_height, min_width
+
+    def _check_terminal_size(self, stdscr):
+        max_y, max_x = stdscr.getmaxyx()
+        min_height, min_width = self._get_min_terminal_size()
+
+        if max_y < min_height or max_x < min_width:
+            stdscr.clear()
+            stdscr.addstr(
+                0,
+                0,
+                f"Terminal too small. Need at least {min_width}x{min_height}"[: max_x - 1]
+            )
+            stdscr.refresh()
+            stdscr.getch()
+            return False
+
+        return True
 
     #Draw the current render
-    def draw(self, stdscr) -> None:
+    def _draw(self, stdscr) -> None:
         #Clear the screan
         stdscr.clear()
 
@@ -232,146 +266,24 @@ class GameUI:
         #Add current room to visited rooms
         self.visited_rooms.add(room_id)
 
-        #Check if terminal too small
-        if max_y < 24 or max_x < 90:
-            stdscr.addstr(0, 0, "Terminal too small"[: max_x - 1])
-            stdscr.refresh()
-            return
-
-
         #Display the message and room
         stdscr.addstr(0, 0, self.message[: max_x - 1])
         stdscr.addstr(1, 0, f"Room {room_id}"[: max_x - 1])
 
         #Call draw room
-        room_width, room_height = self.draw_room(stdscr, room_lines, max_y, max_x)
+        room_width, room_height = self._draw_room(stdscr, room_lines, max_y, max_x)
 
         #Call draw legend and controls and progress
-        self.draw_legend(stdscr, room_width, max_y, max_x)
-        self.draw_controls_status(stdscr, room_height + 2, max_y, max_x)
+        self._draw_legend(stdscr, room_width, max_y, max_x)
+        self._draw_controls_status(stdscr, room_height + 2, max_y, max_x)
         progress_row = 3 + room_height + 1
-        self.draw_progress_bar(stdscr, progress_row, max_y, max_x)
+        self._draw_progress_bar(stdscr, progress_row, max_y, max_x)
 
         #Refresh
         stdscr.refresh()
 
-    def draw_room(self, stdscr, room_lines, max_y, max_x):
-
-        #Store first row for map and current row
-        game_row = 3
-        current_row = game_row
-
-        #Find the widest line
-        room_width = 0
-        for line in room_lines:
-            if len(line) > room_width:
-                room_width = len(line)
-
-        #Leave if room is offscreen
-        for line in room_lines:
-            if current_row >= max_y:
-                break
-
-            #Draw the line
-            stdscr.addstr(current_row, 0, line[: max_x - 1])
-            current_row += 1
-
-        #Return
-        return room_width, len(room_lines)
-
-    def build_progress_bar(self):
-        collected = self.engine.player.get_collected_count()
-        total = self.engine.get_total_treasure_count()
-
-        if total <= 0:
-            return "[--------------------------------------------------] 0%"
-
-        filled = int((collected / total) * 50)
-        empty = 50 - filled
-        percent = int((collected / total) * 100)
-
-        return "[" + ("=" * filled) + ("-" * empty) + f"] {percent}%"
-
-    def build_legend_items(self):
-        charset = self.engine.get_charset()
-
-        return [
-            "Game Elements:",
-            "",
-            f"{charset['player']} - Player",
-            f"{charset['wall']} - Wall",
-            f"{charset['floor']} - Floor",
-            f"{charset['treasure']} - Treasure",
-            f"{charset['portal']} - Portal",
-            f"{charset['pushable']} - Pushable",
-        ]
-
-    def draw_legend(self, stdscr, room_width, max_y, max_x):
-
-        #Store legend column based on room width and set game row
-        legend_col = room_width + 2
-        game_row = 3
-
-        legend_items = self.build_legend_items()
-
-        row = game_row
-        for text in legend_items:
-            if row < max_y and legend_col < max_x:
-                stdscr.addstr(row, legend_col, text[: max_x - legend_col - 1])
-            row += 1
-
-    def draw_progress_bar(self, stdscr, row, max_y, max_x):
-        if row < max_y:
-            progress_text = "Treasure Progress: " + self.build_progress_bar()
-            stdscr.addstr(row, 0, progress_text[: max_x - 1])
-
-    def draw_controls(self, stdscr, controls_row, max_y, max_x):
-        #Displat controls
-        if controls_row < max_y:
-            stdscr.addstr(controls_row, 0, "Game Controls: Arrows / WASD Move, > Portal, r Reset, q Quit"[: max_x - 1])
-
-    def draw_status_footer(self, stdscr, status_row, footer_row, max_y, max_x):
-        #Display status
-        if status_row < max_y:
-            stdscr.addstr(status_row, 0, self.build_status_text()[: max_x - 1])
-
-        #Display footer
-        if footer_row < max_y:
-            stdscr.addstr(footer_row, 0, "-=+ Treasure Runner +=-    mallen31@uoguelph.ca"[: max_x - 1])
-
-    def draw_controls_status(self, stdscr, room_height, max_y, max_x):
-        game_row = 3
-        controls_row = game_row + room_height + 1
-        status_row = controls_row + 2
-        footer_row = status_row + 1
-
-        self.draw_controls(stdscr, controls_row, max_y, max_x)
-        self.draw_status_footer(stdscr, status_row, footer_row, max_y, max_x)
-
-    def build_status_text(self):
-        player_x, player_y = self.engine.player.get_position()
-        collected = self.engine.player.get_collected_count()
-
-        room_count = self.engine.get_room_count()
-
-        return f"Player Status: {self.profile['player_name']} | " f"Treasures Collected: {collected} | " f"Co-ords: ({player_x},{player_y}) | " f"Rooms Visited: {len(self.visited_rooms)}/{room_count}"
-
-    def handle_portal(self):
-        old_room = self.engine.player.get_room()
-        try:
-            self.engine.use_portal()
-            new_room = self.engine.player.get_room()
-
-            if new_room != old_room:
-                self.message = f"Entered Room {new_room}"
-            else:
-                self.message = "Used portal."
-
-        except Exception as exc:
-            self.message = str(exc) if str(exc) else "No portal here."
-
     #Update based on input
-    def update(self, key) -> None:
+    def _update(self, key) -> None:
         #Map movement keys to directions
         move_keys = {
             curses.KEY_UP: Direction.NORTH,
@@ -403,7 +315,7 @@ class GameUI:
 
         #Portal key
         if key == ord(">"):
-            self.handle_portal()
+            self._handle_portal()
             return
 
         #Movement keys
@@ -441,3 +353,151 @@ class GameUI:
         #Print fail
         except Exception as exc:
             self.message = str(exc) if str(exc) else "Can't go there"
+
+    def _draw_room(self, stdscr, room_lines, max_y, max_x):
+
+        #Store first row for map and current row
+        game_row = 3
+        current_row = game_row
+
+        #Find the widest line
+        room_width = 0
+        for line in room_lines:
+            if len(line) > room_width:
+                room_width = len(line)
+
+        #Leave if room is offscreen
+        for line in room_lines:
+            if current_row >= max_y:
+                break
+
+            #Draw the line
+            stdscr.addstr(current_row, 0, line[: max_x - 1])
+            current_row += 1
+
+        #Return
+        return room_width, len(room_lines)
+
+    def _draw_legend(self, stdscr, room_width, max_y, max_x):
+
+        #Store legend column based on room width and set game row
+        legend_col = room_width + 2
+        game_row = 3
+
+        legend_items = self._build_legend_items()
+
+        row = game_row
+        for text in legend_items:
+            if row < max_y and legend_col < max_x:
+                stdscr.addstr(row, legend_col, text[: max_x - legend_col - 1])
+            row += 1
+
+    def _draw_progress_bar(self, stdscr, row, max_y, max_x):
+        if row < max_y:
+            progress_text = "Treasure Progress: " + self._build_progress_bar()
+            stdscr.addstr(row, 0, progress_text[: max_x - 1])
+
+    def _draw_controls(self, stdscr, controls_row, max_y, max_x):
+        #Displat controls
+        if controls_row < max_y:
+            stdscr.addstr(controls_row, 0, "Game Controls: Arrows / WASD Move, > Portal, r Reset, q Quit"[: max_x - 1])
+
+    def _draw_status_footer(self, stdscr, status_row, footer_row, max_y, max_x):
+        #Display status
+        if status_row < max_y:
+            stdscr.addstr(status_row, 0, self._build_status_text()[: max_x - 1])
+
+        #Display footer
+        if footer_row < max_y:
+            stdscr.addstr(footer_row, 0, "-=+ Treasure Runner +=-    mallen31@uoguelph.ca"[: max_x - 1])
+
+    def _draw_controls_status(self, stdscr, room_height, max_y, max_x):
+        game_row = 3
+        controls_row = game_row + room_height + 1
+        status_row = controls_row + 2
+        footer_row = status_row + 1
+
+        self._draw_controls(stdscr, controls_row, max_y, max_x)
+        self._draw_status_footer(stdscr, status_row, footer_row, max_y, max_x)
+
+    def _build_legend_items(self):
+        charset = self.engine.get_charset()
+
+        return [
+            "Game Elements:",
+            "",
+            f"{charset['player']} - Player",
+            f"{charset['wall']} - Wall",
+            f"{charset['floor']} - Floor",
+            f"{charset['treasure']} - Treasure",
+            f"{charset['portal']} - Portal",
+            f"{charset['pushable']} - Pushable",
+        ]
+
+    def _build_progress_bar(self):
+        collected = self.engine.player.get_collected_count()
+        total = self.engine.get_total_treasure_count()
+
+        if total <= 0:
+            return "[--------------------------------------------------] 0%"
+
+        filled = int((collected / total) * 50)
+        empty = 50 - filled
+        percent = int((collected / total) * 100)
+
+        return "[" + ("=" * filled) + ("-" * empty) + f"] {percent}%"
+
+    def _build_status_text(self):
+        player_x, player_y = self.engine.player.get_position()
+        collected = self.engine.player.get_collected_count()
+
+        room_count = self.engine.get_room_count()
+
+        return f"Player Status: {self.profile['player_name']} | " f"Treasures Collected: {collected} | " f"Co-ords: ({player_x},{player_y}) | " f"Rooms Visited: {len(self.visited_rooms)}/{room_count}"
+
+    def _handle_portal(self):
+        old_room = self.engine.player.get_room()
+        try:
+            self.engine.use_portal()
+            new_room = self.engine.player.get_room()
+
+            if new_room != old_room:
+                self.message = f"Entered Room {new_room}"
+            else:
+                self.message = "Used portal."
+
+        except Exception as exc:
+            self.message = str(exc) if str(exc) else "No portal here."
+
+    #Save profile to file
+    def _save_profile(self) -> None:
+        #Ensure folder exists
+        folder = os.path.dirname(self.profile_path)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+
+        #Write profile to file
+        with open(self.profile_path, "w", encoding="utf-8") as file:
+            json.dump(self.profile, file, indent=4)
+
+    #Update profile stats after game ends
+    def _update_profile_stats(self) -> None:
+        #Get current collected treasure count
+        collected = self.engine.player.get_collected_count()
+
+        #Get number of rooms visited
+        rooms_visited = len(self.visited_rooms)
+
+        #Increment games played
+        self.profile["games_played"] += 1
+
+        #Update max treasure if needed
+        if collected > self.profile["max_treasure_collected"]:
+            self.profile["max_treasure_collected"] = collected
+
+        #Update most rooms completed if needed
+        if rooms_visited > self.profile["most_rooms_world_completed"]:
+            self.profile["most_rooms_world_completed"] = rooms_visited
+
+        #Update timestamp
+        self.profile["timestamp_last_played"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
