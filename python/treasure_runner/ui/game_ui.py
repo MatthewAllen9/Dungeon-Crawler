@@ -191,104 +191,91 @@ class GameUI:
         #Add current room to visited rooms
         self.visited_rooms.add(room_id)
 
-        #Store room name
-        room_name = self.engine.player.get_room()
-
-        #Get treasures collected
-        collected = self.engine.player.get_collected_count()
-
-        #Get player position
-        player_x, player_y = self.engine.player.get_position()
-
-        #Get total room count
-        room_count = self.engine.get_room_count()
-
-        #Store screen positions
-        message_row = 0
-        room_label_row = 1
-        game_row = 3
-       
-        #Find the widest row in the room
-        room_width = 0
-        for line in room_lines:
-            if len(line) > room_width:
-                room_width = len(line)
-
-        #Store legend column based on room width
-        legend_col = room_width + 2
-
-        #Store room height
-        room_height = len(room_lines)
-
         #Check if terminal too small
         if max_y < 24 or max_x < 76:
             stdscr.addstr(0, 0, "Terminal too small."[: max_x - 1])
             stdscr.refresh()
             return
 
-        #Print the message bar
-        if message_row < max_y:
-            stdscr.addstr(message_row, 0, self.message[: max_x - 1])
 
-        #Print room number and name
-        if room_label_row < max_y:
-            stdscr.addstr(room_label_row, 0, f"Room {room_id}: {room_name}"[: max_x - 1])
+        #Display the message and room
+        stdscr.addstr(0, 0, self.message[: max_x - 1])
+        stdscr.addstr(1, 0, f"Room {room_id}"[: max_x - 1])
 
-        #Draw room render
+        #Call draw room
+        room_width, room_height = self.draw_room(stdscr, room_lines, max_y, max_x)
+
+        #Call draw legend and controls
+        self.draw_legend(stdscr, room_width, max_y, max_x)
+        self.draw_controls_status(stdscr, room_height, max_y, max_x)
+
+        #Refresh
+        stdscr.refresh()
+
+    def draw_room(self, stdscr, room_lines, max_y, max_x):
+
+        #Store first row for map and current row
+        game_row = 3
         current_row = game_row
 
-        #Draw each row
+        #Find the widest line
+        room_width = 0
         for line in room_lines:
-            #Exit if not on terminal
+            if len(line) > room_width:
+                room_width = len(line)
+
+        #Leave if room is offscreen
+        for line in room_lines:
             if current_row >= max_y:
                 break
 
-            #Draw cur row
+            #Draw the line
             stdscr.addstr(current_row, 0, line[: max_x - 1])
             current_row += 1
 
-        #Print legend title
-        if game_row < max_y and legend_col < max_x:
-            stdscr.addstr(game_row, legend_col, "Game Elements:"[: max_x - legend_col - 1])
+        #Return
+        return room_width, len(room_lines)
 
-        #Print legend items
-        if game_row + 2 < max_y and legend_col < max_x:
-            stdscr.addstr(game_row + 2, legend_col, "@ - Player"[: max_x - legend_col - 1])
+    def draw_legend(self, stdscr, room_width, max_y, max_x):
 
-        if game_row + 3 < max_y and legend_col < max_x:
-            stdscr.addstr(game_row + 3, legend_col, "# - Wall"[: max_x - legend_col - 1])
+        #Store legend column based on room width and set game row
+        legend_col = room_width + 2
+        game_row = 3
 
-        if game_row + 4 < max_y and legend_col < max_x:
-            stdscr.addstr(game_row + 4, legend_col, ". - Floor"[: max_x - legend_col - 1])
+        #Set each row for the legend
+        legend_items = ["Game Elements:", "", "@ - Player", "# - Wall", ". - Floor", "$ - Treasure", "X - Portal", "O - Pushable"]
 
-        if game_row + 5 < max_y and legend_col < max_x:
-            stdscr.addstr(game_row + 5, legend_col, "$ - Treasure"[: max_x - legend_col - 1])
+        #Print all lines of the legend
+        row = game_row
+        for text in legend_items:
+            if row < max_y and legend_col < max_x:
+                stdscr.addstr(row, legend_col, text[: max_x - legend_col - 1])
+            row += 1
 
-        if game_row + 6 < max_y and legend_col < max_x:
-            stdscr.addstr(game_row + 6, legend_col, "X - Portal"[: max_x - legend_col - 1])
 
-        if game_row + 7 < max_y and legend_col < max_x:
-            stdscr.addstr(game_row + 7, legend_col, "O - Pushable"[: max_x - legend_col - 1])
+    def draw_controls_status(self, stdscr, room_height, max_y, max_x):
+        game_row = 3
 
-        #Store values to display and locations
         controls_row = game_row + room_height + 1
         status_row = controls_row + 2
         footer_row = status_row + 1
 
-        #Display controls
-        if controls_row < max_y:
-            stdscr.addstr(controls_row, 0, "Game Controls: Arrows / WASD Move, > Portal, r Reset, q Quit"[: max_x - 1])
+        player_x, player_y = self.engine.player.get_position()
+        collected = self.engine.player.get_collected_count()
+        room_count = self.engine.get_room_count()
 
-        #Display player status
+        if controls_row < max_y:
+            stdscr.addstr(
+                controls_row,
+                0,
+                "Game Controls: Arrows / WASD Move, > Portal, r Reset, q Quit"[: max_x - 1]
+            )
+
         if status_row < max_y:
             stdscr.addstr(status_row, 0, f"Player Status: {self.profile['player_name']} | Treasures Collected: {collected} | Co-ords: ({player_x},{player_y}) | Rooms Visited: {len(self.visited_rooms)}/{room_count}"[: max_x - 1])
 
-        #Display footer
         if footer_row < max_y:
-            stdscr.addstr(footer_row, 0, f"-=+ Treasure Runner +=-    mallen31@uoguelph.ca"[: max_x - 1],)
-
-        #Refresh display
-        stdscr.refresh()
+            stdscr.addstr(footer_row, 0, "-=+ Treasure Runner +=-    mallen31@uoguelph.ca"[: max_x - 1])
 
     #Update based on input
     def update(self, key) -> None:
