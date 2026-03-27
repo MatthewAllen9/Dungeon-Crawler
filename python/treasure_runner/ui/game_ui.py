@@ -222,7 +222,6 @@ class GameUI:
         )
 
         game_row = 3
-        progress_row = game_row + room_height + 1
         controls_row = game_row + room_height + 3
         status_row = controls_row + 2
         footer_row = status_row + 1
@@ -276,8 +275,7 @@ class GameUI:
         #Call draw legend and controls and progress
         self._draw_legend(stdscr, room_width, max_y, max_x)
         self._draw_controls_status(stdscr, room_height + 2, max_y, max_x)
-        progress_row = 3 + room_height + 1
-        self._draw_progress_bar(stdscr, progress_row, max_y, max_x)
+        self._draw_progress_bar(stdscr, 3 + room_height + 1, max_y, max_x)
 
         #Refresh
         stdscr.refresh()
