@@ -1,4 +1,7 @@
 import curses
+import json
+import os
+from datetime import datetime, timezone
 from treasure_runner.bindings import Direction
 
 #View
@@ -10,6 +13,8 @@ class GameUI:
         self.profile_path = profile_path
         self.message = "Welcome"
         self.running = True
+        self.profile = None
+        self.visited_rooms = set()
 
     #Start the UI
     def run(self) -> None:
@@ -22,12 +27,151 @@ class GameUI:
         #Enable arrow keys
         stdscr.keypad(True)
 
+        #Load or create profile
+        self.profile = self._load_or_create_profile(stdscr)
+
+        #Show startup screen
+        self._show_startup_screen(stdscr)
+
+        #Track initial room
+        self.visited_rooms.add(self.engine.player.get_room())
+
         #Game loop
         while self.running:
             #Draw then get input and then handle input then repeat
             self.draw(stdscr)
             key = stdscr.getch()
             self.update(key)
+
+        #Update and save profile after the game ends
+        self._update_profile_stats()
+        self._save_profile()
+
+        #Show quit screen
+        self._show_quit_screen(stdscr)
+
+    #Load existing profile or create a new one
+    def _load_or_create_profile(self, stdscr) -> dict:
+        #Check if the profile already exists
+        if os.path.exists(self.profile_path):
+            with open(self.profile_path, "r", encoding="utf-8") as file:
+                return json.load(file)
+
+        #Prompt for player name if profile does not exist
+        player_name = self._prompt_player_name(stdscr)
+
+        #Create default profile
+        profile = {
+            "player_name": player_name,
+            "games_played": 0,
+            "max_treasure_collected": 0,
+            "most_rooms_world_completed": 0,
+            "timestamp_last_played": ""
+        }
+
+        #Ensure folder exists
+        folder = os.path.dirname(self.profile_path)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+
+        #Save the new profile immediately
+        with open(self.profile_path, "w", encoding="utf-8") as file:
+            json.dump(profile, file, indent=4)
+
+        return profile
+
+    #Prompt for player name
+    def _prompt_player_name(self, stdscr) -> str:
+        #SHow typed input
+        curses.echo()
+
+        #Clear screen and prompt
+        stdscr.clear()
+        stdscr.addstr(0, 0, "No profile found.")
+        stdscr.addstr(1, 0, "Enter player name: ")
+        stdscr.refresh()
+
+        #Read name
+        name = stdscr.getstr(1, 19, 50).decode("utf-8").strip()
+
+        #Turn echo back off
+        curses.noecho()
+
+        #Set default
+        if not name:
+            name = "Player"
+
+        return name
+
+    #Show startup splash screen
+    def _show_startup_screen(self, stdscr) -> None:
+        #Clear screen
+        stdscr.clear()
+
+        #Get last played text or set to never
+        last_played = self.profile["timestamp_last_played"]
+        if not last_played:
+            last_played = "Never"
+
+        #Lines to display
+        lines = ["Treasure Runner", "", f"Player: {self.profile['player_name']}", f"Games Played: {self.profile['games_played']}", f"Max Treasure Collected: {self.profile['max_treasure_collected']}", f"Most Rooms World Completed: {self.profile['most_rooms_world_completed']}", f"Last Played: {last_played}", "", "Press any key to continue"]
+
+        #Print all lines
+        for i, line in enumerate(lines):
+            stdscr.addstr(i, 0, line)
+
+        #Refresh and wait
+        stdscr.refresh()
+        stdscr.getch()
+
+    #Show quit splash screen
+    def _show_quit_screen(self, stdscr) -> None:
+        #Clear screen
+        stdscr.clear()
+
+        #Lines to display
+        lines = ["Thanks for playing Treasure Runner", "", f"Player: {self.profile['player_name']}", f"Games Played: {self.profile['games_played']}", f"Max Treasure Collected: {self.profile['max_treasure_collected']}", f"Most Rooms World Completed: {self.profile['most_rooms_world_completed']}", f"Last Played: {self.profile['timestamp_last_played']}", "", "Press any key to exit"]
+
+        #Print all lines
+        for i, line in enumerate(lines):
+            stdscr.addstr(i, 0, line)
+
+        #Refresh and wait
+        stdscr.refresh()
+        stdscr.getch()
+
+    #Update profile stats after game ends
+    def _update_profile_stats(self) -> None:
+        #Get current collected treasure count
+        collected = self.engine.player.get_collected_count()
+
+        #Get number of rooms visited
+        rooms_visited = len(self.visited_rooms)
+
+        #Increment games played
+        self.profile["games_played"] += 1
+
+        #Update max treasure if needed
+        if collected > self.profile["max_treasure_collected"]:
+            self.profile["max_treasure_collected"] = collected
+
+        #Update most rooms completed if needed
+        if rooms_visited > self.profile["most_rooms_world_completed"]:
+            self.profile["most_rooms_world_completed"] = rooms_visited
+
+        #Update timestamp
+        self.profile["timestamp_last_played"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    #Save profile to file
+    def _save_profile(self) -> None:
+        #Ensure folder exists
+        folder = os.path.dirname(self.profile_path)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+
+        #Write profile to file
+        with open(self.profile_path, "w", encoding="utf-8") as file:
+            json.dump(self.profile, file, indent=4)
 
     #Draw the current render
     def draw(self, stdscr) -> None:
@@ -44,8 +188,11 @@ class GameUI:
         #Get room id
         room_id = self.engine.player.get_room()
 
+        #Add current room to visited rooms
+        self.visited_rooms.add(room_id)
+
         #Store room name
-        room_name = f"Room {room_id}"
+        room_name = self.engine.player.get_room()
 
         #Get treasures collected
         collected = self.engine.player.get_collected_count()
@@ -134,7 +281,7 @@ class GameUI:
 
         #Display player status
         if status_row < max_y:
-            stdscr.addstr(status_row, 0, f"Player Status: Treasures Collected: {collected} | Co-ords: ({player_x},{player_y}) | Total Rooms: {room_count}"[: max_x - 1])
+            stdscr.addstr(status_row, 0, f"Player Status: {self.profile['player_name']} | Treasures Collected: {collected} | Co-ords: ({player_x},{player_y}) | Rooms Visited: {len(self.visited_rooms)}/{room_count}"[: max_x - 1])
 
         #Display footer
         if footer_row < max_y:
@@ -161,6 +308,7 @@ class GameUI:
         #Reset game on r
         elif key in (ord("r"), ord("R")):
             self.engine.reset()
+            self.visited_rooms = {self.engine.player.get_room()}
             self.message = "Game reset."
         #Portal key
         elif key == ord(">"):
@@ -168,10 +316,26 @@ class GameUI:
 
     #Try move
     def _try_move(self, direction) -> None:
+        #Store room and treasure count before moving
+        old_room = self.engine.player.get_room()
+        old_count = self.engine.player.get_collected_count()
+
         #Move if valid
         try:
             self.engine.move_player(direction)
-            self.message = "Moved."
+
+            #Store updated room and treasure count
+            new_room = self.engine.player.get_room()
+            new_count = self.engine.player.get_collected_count()
+
+            #Update message based on result
+            if new_room != old_room:
+                self.message = f"Entered Room {new_room}"
+            elif new_count > old_count:
+                self.message = "Treasure collected!"
+            else:
+                self.message = "Moved."
+
         #Print fail
         except Exception as exc:
             self.message = str(exc) if str(exc) else "Failed move."
