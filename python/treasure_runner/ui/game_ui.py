@@ -87,7 +87,7 @@ class GameUI:
 
         #Clear screen and prompt
         stdscr.clear()
-        stdscr.addstr(0, 0, "No profile found.")
+        stdscr.addstr(0, 0, "No profile found")
         stdscr.addstr(1, 0, "Enter player name: ")
         stdscr.refresh()
 
@@ -116,9 +116,14 @@ class GameUI:
         #Lines to display
         lines = ["Treasure Runner", "", f"Player: {self.profile['player_name']}", f"Games Played: {self.profile['games_played']}", f"Max Treasure Collected: {self.profile['max_treasure_collected']}", f"Most Rooms World Completed: {self.profile['most_rooms_world_completed']}", f"Last Played: {last_played}", "", "Press any key to continue"]
 
-        #Print all lines
-        for i, line in enumerate(lines):
-            stdscr.addstr(i, 0, line)
+        max_y, max_x = stdscr.getmaxyx()
+
+        row = 0
+        for line in lines:
+            if row >= max_y:
+                break
+            stdscr.addstr(row, 0, line[: max_x - 1])
+            row += 1
 
         #Refresh and wait
         stdscr.refresh()
@@ -132,9 +137,14 @@ class GameUI:
         #Lines to display
         lines = ["Thanks for playing Treasure Runner", "", f"Player: {self.profile['player_name']}", f"Games Played: {self.profile['games_played']}", f"Max Treasure Collected: {self.profile['max_treasure_collected']}", f"Most Rooms World Completed: {self.profile['most_rooms_world_completed']}", f"Last Played: {self.profile['timestamp_last_played']}", "", "Press any key to exit"]
 
-        #Print all lines
-        for i, line in enumerate(lines):
-            stdscr.addstr(i, 0, line)
+        max_y, max_x = stdscr.getmaxyx()
+
+        row = 0
+        for line in lines:
+            if row >= max_y:
+                break
+            stdscr.addstr(row, 0, line[: max_x - 1])
+            row += 1
 
         #Refresh and wait
         stdscr.refresh()
@@ -192,8 +202,8 @@ class GameUI:
         self.visited_rooms.add(room_id)
 
         #Check if terminal too small
-        if max_y < 24 or max_x < 76:
-            stdscr.addstr(0, 0, "Terminal too small."[: max_x - 1])
+        if max_y < 24 or max_x < 90:
+            stdscr.addstr(0, 0, "Terminal too small"[: max_x - 1])
             stdscr.refresh()
             return
 
@@ -280,12 +290,7 @@ class GameUI:
         collected = self.engine.player.get_collected_count()
         room_count = self.engine.get_room_count()
 
-        return (
-            f"Player Status: {self.profile['player_name']} | "
-            f"Treasures Collected: {collected} | "
-            f"Co-ords: ({player_x},{player_y}) | "
-            f"Rooms Visited: {len(self.visited_rooms)}/{room_count}"
-        )
+        return (f"Player Status: {self.profile['player_name']} | " f"Treasures Collected: {collected} | " f"Co-ords: ({player_x},{player_y}) | " f"Rooms Visited: {len(self.visited_rooms)}/{room_count}")
 
     #Update based on input
     def update(self, key) -> None:
@@ -309,7 +314,11 @@ class GameUI:
             self.message = "Game reset."
         #Portal key
         elif key == ord(">"):
-            self.message = "Portal key pressed."
+            try:
+                self.engine.use_portal()
+                self.message = "Entered portal!"
+            except Exception:
+                self.message = "No portal here"
 
     #Try move
     def _try_move(self, direction) -> None:
@@ -331,8 +340,8 @@ class GameUI:
             elif new_count > old_count:
                 self.message = "Treasure collected!"
             else:
-                self.message = "Moved."
+                self.message = f"Moved {direction.name}"
 
         #Print fail
         except Exception as exc:
-            self.message = str(exc) if str(exc) else "Failed move."
+            self.message = str(exc) if str(exc) else "Can't go there"
