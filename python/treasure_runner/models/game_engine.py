@@ -161,10 +161,11 @@ class GameEngine:
             "switch_off": out_charset.switch_off.decode("utf-8"),
             "switch_on": out_charset.switch_on.decode("utf-8"),
         }
-            
+
     def get_total_treasure_count(self) -> int:
         out_count = ctypes.c_int(0)
         status = lib.game_engine_get_total_treasure_count(self._eng, ctypes.byref(out_count))
         if status != Status.OK:
             raise status_to_exception(status)
         return int(out_count.value)
+        
